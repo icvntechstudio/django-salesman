@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'salesman.orders',
     'salesman.admin',
     'rest_framework',
+    'graphene_django',
     # wagtail
     'wagtail.contrib.forms',
     'wagtail.contrib.redirects',
@@ -170,6 +171,11 @@ SALESMAN_PAYMENT_METHODS = [
 ]
 SALESMAN_ADDRESS_VALIDATOR = 'shop.utils.custom_address_validator'
 SALESMAN_PRICE_FORMATTER = 'shop.utils.custom_price_format'
+
+# graphene_django
+GRAPHENE = {
+    'SCHEMA': 'salesman.schema.schema'
+}
 
 # wagtail
 WAGTAIL_SITE_NAME = 'My Example Site'

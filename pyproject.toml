@@ -28,6 +28,7 @@ include = ["LICENSE"]
 python = "^3.6"
 django = "~3.0"
 djangorestframework = "~3.11"
+graphene-django = "~2.8.2"
 
 # Optional dependencies
 Pygments = {version = "~2.5", optional = true}
@@ -58,7 +59,7 @@ exclude = '/(\.git|\.venv|dist|migrations)/'
 [tool.isort]
 skip = "migrations"
 known_first_party = ["salesman"]
-known_third_party = ["rest_framework", "wagtail", "pytest"]
+known_third_party = ["rest_framework", "graphene", "graphene_django", "wagtail", "pytest"]
 multi_line_output = 3
 include_trailing_comma = true
 force_grid_wrap = 0
