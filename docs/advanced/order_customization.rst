@@ -65,3 +65,16 @@ points to a function that returns a unique reference string.
     :pyobject: generate_ref
 
 Your custom function should accept Django's ``request`` object as a parameter.
+
+.. _custom-order-serializer:
+
+Custom order serializer
+=======================
+
+You can override order serializer by providing a dotted path in ``SALESMAN_ORDER_SERIALIZER`` setting.
+Optionally you can configure a separate order "summary" serializer with ``SALESMAN_ORDER_SUMMARY_SERIALIZER``
+setting, otherwise the same order serializer is used. Default serializer for is set
+to :class:`salesman.orders.serializers.OrderSerializer`.
+
+You can also override the ``OrderSerializer.Meta.prefetched_fields`` property to optimize for any added
+relations to your custom serializer.

@@ -17,10 +17,10 @@ class ProductField(serializers.DictField):
     taken from ``SALESMAN_PRODUCT_TYPES`` setting.
     """
 
-    def to_representation(self, product):
+    def to_representation(self, product, request=None):
         product_types = app_settings.SALESMAN_PRODUCT_TYPES
-        serializer_class = product_types.get(product._meta.label, None)
-        return serializer_class(product).data if serializer_class else product.pk
+        serializer_class = product_types[product._meta.label]
+        return serializer_class(context=self.context).to_representation(product)
 
 
 class ExtraRowsField(serializers.ListField):
@@ -57,7 +57,7 @@ class BasketItemSerializer(serializers.ModelSerializer):
     extra_rows = ExtraRowsField(read_only=True)
     total = PriceField(read_only=True)
     extra = serializers.JSONField(
-        required=False, help_text=_("Extra is updated and null values are removed.")
+        default=dict, help_text=_("Extra is updated and null values are removed.")
     )
 
     class Meta:
@@ -82,12 +82,18 @@ class BasketItemSerializer(serializers.ModelSerializer):
         url = reverse('salesman-basket-detail', args=[obj.ref])
         return request.build_absolute_uri(url) if request else url
 
+    def validate(self, attrs):
+        context = self.context.copy()
+        context['basket_item'] = self.instance
+        return app_settings.SALESMAN_BASKET_ITEM_VALIDATOR(attrs, context=context)
+
     def validate_extra(self, value):
         # Update basket `extra` instead of replacing it, remove null values.
         extra = self.instance.extra if self.instance else {}
         if value:
             extra.update(value)
             extra = {k: v for k, v in extra.items() if v is not None}
+
         # Validate using extra validator.
         context = self.context.copy()
         context['basket_item'] = self.instance
@@ -111,7 +117,7 @@ class BasketItemCreateSerializer(serializers.ModelSerializer):
     )
     product_id = serializers.IntegerField(min_value=1)
     quantity = serializers.IntegerField(default=1, min_value=1)
-    extra = serializers.JSONField(required=False, help_text=_("Store extra JSON data."))
+    extra = serializers.JSONField(default=dict, help_text=_("Store extra JSON data."))
 
     class Meta:
         model = BasketItem
@@ -128,7 +134,11 @@ class BasketItemCreateSerializer(serializers.ModelSerializer):
         except ObjectDoesNotExist:
             msg = _("Product '{product_type}' with id '{product_id}' doesn't exist.")
             raise serializers.ValidationError(msg.format(**attrs))
-        return attrs
+
+        # Validate using basket item validator.
+        context = self.context.copy()
+        context['basket_item'] = self.instance
+        return app_settings.SALESMAN_BASKET_ITEM_VALIDATOR(attrs, context=context)
 
     def validate_extra(self, value):
         context = self.context.copy()

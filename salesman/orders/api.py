@@ -7,12 +7,12 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
 from salesman.checkout.payment import PaymentError, payment_methods_pool
+from salesman.conf import app_settings
 
 from .models import Order
 from .serializers import (
     OrderPaySerializer,
     OrderRefundSerializer,
-    OrderSerializer,
     OrderStatusSerializer,
 )
 
@@ -22,25 +22,50 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
     Orders API endpoint.
     """
 
-    serializer_class = OrderSerializer
+    serializer_class = app_settings.SALESMAN_ORDER_SERIALIZER
     lookup_field = 'ref'
 
     def get_queryset(self):
+        queryset = Order.objects.all()
+
+        # Optimize views by pre-fetching data.
+        prefetched_fields = self.get_prefetched_fields()
+        if prefetched_fields:
+            queryset = queryset.prefetch_related(*prefetched_fields)
+
         if self.request.user.is_authenticated:
             if self.request.user.is_staff and self.action != 'list':
                 # Allow access for admin user to all orders except on `list`.
-                return Order.objects.all()
-            return Order.objects.filter(user=self.request.user)
+                return queryset
+            return queryset.filter(user=self.request.user)
+
         if 'token' in self.request.GET:
             # Allow non-authenticated users access to order with token.
-            return Order.objects.filter(token=self.request.GET['token'])
+            return queryset.filter(token=self.request.GET['token'])
+
         return Order.objects.none()
+
+    def get_object(self):
+        if not hasattr(self, '_object'):
+            self._object = super().get_object()
+        return self._object
+
+    def get_serializer_class(self):
+        if self.action in ["list", "all"]:
+            return app_settings.SALESMAN_ORDER_SUMMARY_SERIALIZER
+        return super().get_serializer_class()
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        if self.detail:
+        if self.detail and self.lookup_field in self.kwargs:
             context['order'] = self.get_object()
         return context
+
+    def get_prefetched_fields(self):
+        serializer_class = self.get_serializer_class()
+        if hasattr(serializer_class, "Meta"):
+            return getattr(serializer_class.Meta, "prefetched_fields", None)
+        return None
 
     @method_decorator(never_cache)
     def dispatch(self, request, *args, **kwargs):

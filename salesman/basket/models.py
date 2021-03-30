@@ -184,7 +184,7 @@ class Basket(models.Model):
         Returns items from cache or stores new ones.
         """
         if self._cached_items is None:
-            self._cached_items = list(self.items.all())
+            self._cached_items = list(self.items.all().prefetch_related("product"))
         return self._cached_items
 
     @property
@@ -262,6 +262,20 @@ class BasketItem(models.Model):
         self.total = self.subtotal
         for modifier in basket_modifiers_pool.get_modifiers():
             modifier.process_item(self, request)
+
+    @property
+    def name(self):
+        """
+        Returns product `name`.
+        """
+        return self.product.name
+
+    @property
+    def code(self):
+        """
+        Returns product `name`.
+        """
+        return self.product.code
 
     @classmethod
     def get_product_ref(cls, product: object) -> str:

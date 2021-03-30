@@ -88,6 +88,15 @@ class DefaultSettings:
         return ret
 
     @property
+    def SALESMAN_BASKET_ITEM_VALIDATOR(self) -> callable:
+        """
+        A dotted path to basket item validator function.
+        """
+        default = "salesman.basket.utils.validate_basket_item"
+        value = self._setting('SALESMAN_BASKET_ITEM_VALIDATOR', default)
+        return self._callable(value)
+
+    @property
     def SALESMAN_PAYMENT_METHODS(self) -> list:
         """
         A list of strings formated as ``path.to.CustomPayment``.
@@ -159,6 +168,25 @@ class DefaultSettings:
         return self._callable(value)
 
     @property
+    def SALESMAN_ORDER_SERIALIZER(self) -> type:
+        """
+        A dotted path to a serializer class for Order.
+        """
+        default = 'salesman.orders.serializers.OrderSerializer'
+        value = self._setting("SALESMAN_ORDER_SERIALIZER", default)
+        return self._callable(value)
+
+    @property
+    def SALESMAN_ORDER_SUMMARY_SERIALIZER(self) -> type:
+        """
+        A dotted path to a summary serializer class for Order.
+        """
+        value = self._setting("SALESMAN_ORDER_SUMMARY_SERIALIZER", None)
+        if not value:
+            return self.SALESMAN_ORDER_SERIALIZER
+        return self._callable(value)
+
+    @property
     def SALESMAN_PRICE_FORMATTER(self) -> callable:
         """
         A dotted path to price formatter function. Function should accept a value
@@ -201,6 +229,28 @@ class DefaultSettings:
         you wish to build your own ``ModelAdmin`` for Django or Wagtail.
         """
         return self._setting('SALESMAN_ADMIN_REGISTER', True)
+
+    @property
+    def SALESMAN_ADMIN_CUSTOMER_FORMATTER(self) -> callable:
+        """
+        A dotted path to Customer formatter function. Function should accept
+        user as argument and return a string for customer display. Also recieves
+        a ``context`` dictionary with additional render data.
+        """
+        default = 'salesman.admin.utils.format_customer'
+        value = self._setting('SALESMAN_ADMIN_CUSTOMER_FORMATTER', default)
+        return self._callable(value)
+
+    @property
+    def SALESMAN_ADMIN_JSON_FORMATTER(self) -> callable:
+        """
+        A dotted path to JSON formatter function. Function should accept a dict
+        value and return an HTML formatted string. Also recieves a ``context``
+        dictionary with additional render data.
+        """
+        default = 'salesman.admin.utils.format_json'
+        value = self._setting('SALESMAN_ADMIN_JSON_FORMATTER', default)
+        return self._callable(value)
 
 
 app_settings = DefaultSettings()

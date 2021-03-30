@@ -25,7 +25,7 @@ from .admin import OrderModelForm as BaseOrderModelForm
 from .admin import OrderStatusFilter
 from .edit_handlers import ReadOnlyPanel
 from .models import Order
-from .utils import format_json, format_price
+from .utils import format_price
 from .widgets import OrderStatusSelect, PaymentSelect
 
 
@@ -34,7 +34,10 @@ def _format_json(value, obj, request):
     Wrapper for ``format_json`` temporarily used to display
     json values on inline order models.
     """
-    return format_json(value)
+    return app_settings.SALESMAN_ADMIN_JSON_FORMATTER(
+        value,
+        context={'order_item': True},
+    )
 
 
 def _format_date(value, obj, request):
@@ -52,6 +55,13 @@ def _format_is_paid(value, obj, request):
     icon, color = ('tick', '#157b57') if obj.is_paid else ('cross', '#cd3238')
     template = '<span class="icon icon-{}" style="color: {};"></span>'
     return format_html(template, icon, color)
+
+
+def _format_customer(value, obj, request):
+    """
+    Wrapper for displaying customer in Wagtail.
+    """
+    return obj.customer_display(context={'wagtail': True})
 
 
 def _render_items(value, obj, request):
@@ -176,7 +186,7 @@ class BaseOrderAdmin(ModelAdmin):
         ),
         MultiFieldPanel(
             [
-                ReadOnlyPanel('user'),
+                ReadOnlyPanel('customer_display', formatter=_format_customer),
                 ReadOnlyPanel('email'),
                 ReadOnlyPanel('shipping_address_display'),
                 ReadOnlyPanel('billing_address_display'),

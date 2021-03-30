@@ -12,7 +12,7 @@ from django.utils.functional import cached_property
 from django.utils.text import Truncator, slugify
 from django.utils.translation import gettext_lazy as _
 
-from salesman.basket.models import Basket
+from salesman.basket.models import Basket, BasketItem
 from salesman.conf import app_settings
 from salesman.core.models import JSONField
 
@@ -171,7 +171,10 @@ class Order(ClusterableModel):
 
     @transaction.atomic
     def populate_from_basket(
-        self, basket: Basket, request: HttpRequest, **kwargs,
+        self,
+        basket: Basket,
+        request: HttpRequest,
+        **kwargs,
     ) -> None:
         """
         Populate order with items from basket.
@@ -180,7 +183,7 @@ class Order(ClusterableModel):
             basket (Basket): Basket instance
             request (HttpRequest): Django request
         """
-        from salesman.basket.serializers import ExtraRowsField, ProductField
+        from salesman.basket.serializers import ExtraRowsField
 
         if not hasattr(basket, 'total'):
             basket.update(request)
@@ -200,23 +203,9 @@ class Order(ClusterableModel):
         self.save()
 
         for item in basket.get_items():
-            # Store serialized product with `name` and `code`.
-            product_data = ProductField().to_representation(item.product)
-            product_data.update({'name': item.product.name, 'code': item.product.code})
-
-            extra_rows = ExtraRowsField().to_representation(item.extra_rows)
-            OrderItem.objects.create(
-                order=self,
-                product_type=item.product._meta.label,
-                product_content_type=item.product_content_type,
-                product_id=item.product_id,
-                product_data=product_data,
-                unit_price=item.unit_price,
-                subtotal=item.subtotal,
-                total=item.total,
-                quantity=item.quantity,
-                _extra=dict(item.extra, rows=extra_rows),
-            )
+            obj = OrderItem(order=self)
+            obj.populate_from_basket_item(item, request)
+            obj.save()
 
     @property
     def status_display(self) -> str:
@@ -240,8 +229,7 @@ class Order(ClusterableModel):
         """
         Returns amount already paid for this order.
         """
-        aggr = self.payments.aggregate(amount=models.Sum('amount'))
-        return Decimal(aggr['amount'] or 0)
+        return Decimal(sum([x.amount for x in self.payments.all()]))
 
     @property
     def amount_outstanding(self) -> Decimal:
@@ -268,7 +256,10 @@ class Order(ClusterableModel):
 
 class OrderItem(models.Model):
     order = ParentalForeignKey(
-        Order, on_delete=models.CASCADE, related_name='items', verbose_name=_("Order"),
+        Order,
+        on_delete=models.CASCADE,
+        related_name='items',
+        verbose_name=_("Order"),
     )
 
     product_type = models.CharField(_("Product type"), max_length=128)
@@ -311,6 +302,34 @@ class OrderItem(models.Model):
             kwargs['update_fields'].remove('extra')
             kwargs['update_fields'].append('_extra')
         super().save(*args, **kwargs)
+
+    def populate_from_basket_item(self, item: BasketItem, request: HttpRequest) -> None:
+        """
+        Populate order with items from basket.
+
+        Args:
+            item (BasketItem): Basket item instance
+            request (HttpRequest): Django request
+        """
+        from salesman.basket.serializers import ExtraRowsField, ProductField
+
+        self.product_type = item.product._meta.label
+        self.product_content_type = item.product_content_type
+        self.product_id = item.product_id
+
+        # Store serialized product with `name` and `code`.
+        product_field = ProductField()
+        product_field._context = {"request": request}
+        product_data = product_field.to_representation(item.product)
+        product_data.update({'name': item.product.name, 'code': item.product.code})
+        self.product_data = product_data
+
+        self.unit_price = item.unit_price
+        self.subtotal = item.subtotal
+        self.total = item.total
+        self.quantity = item.quantity
+        self.extra = item.extra
+        self.extra_rows = ExtraRowsField().to_representation(item.extra_rows)
 
     @property
     def name(self):
@@ -370,7 +389,10 @@ class OrderPayment(models.Model):
 
 class OrderNote(models.Model):
     order = ParentalForeignKey(
-        Order, on_delete=models.CASCADE, related_name='notes', verbose_name=_("Order"),
+        Order,
+        on_delete=models.CASCADE,
+        related_name='notes',
+        verbose_name=_("Order"),
     )
 
     message = models.TextField(_("Message"))

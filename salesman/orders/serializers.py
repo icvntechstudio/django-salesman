@@ -107,6 +107,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'notes',
         ]
         read_only_fields = fields
+        prefetched_fields = ['items', 'payments', 'notes']
 
     def get_url(self, obj):
         request = self.context.get('request', None)
@@ -114,7 +115,7 @@ class OrderSerializer(serializers.ModelSerializer):
         return request.build_absolute_uri(url) if request else url
 
     def get_notes(self, obj):
-        notes = obj.notes.filter(public=True)
+        notes = [x for x in obj.notes.all() if x.public]
         return OrderNoteSerializer(notes, many=True).data
 
 
@@ -172,7 +173,8 @@ class OrderPaySerializer(serializers.Serializer):
 
     url = serializers.CharField(read_only=True)
     payment_method = serializers.ChoiceField(
-        choices=payment_methods_pool.get_choices('order'), write_only=True,
+        choices=payment_methods_pool.get_choices('order'),
+        write_only=True,
     )
 
     # Show payment methods with error on GET.
